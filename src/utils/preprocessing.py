@@ -98,8 +98,11 @@ def get_trials_data(data: mne.io.Raw) -> pd.DataFrame:
         # modelling the motion of the sensors, not their initial state
         trial_sensor_data = trial_sensor_data - trial_sensor_data[0, :]
         trial = pd.DataFrame(trial_sensor_data, columns=sensors)
+        for sensor in sensors:
+            trial[f"prev_{sensor}"] = trial[sensor].shift(1)
         trial["trial_id"] = trial_index
         trial["time"] = times[event.prev_onset : event.onset]
+        trial["rt"] = event.end_time - event.onset_time
         trial["elapsed"] = trial["time"] - event.onset_time
         trial["condition"] = event.condition
         trial["response"] = event.response
@@ -116,6 +119,8 @@ def preprocess_raw(raw: mne.io.Raw) -> mne.io.Raw:
     raw.pick_types(
         meg=False, eeg=True, stim=True, eog=False, exclude=["VEOG", "HEOG"]
     )
+    # Resampling data for faster processing
+    raw.resample(100, npad="auto")
     # Set average reference
     raw.set_eeg_reference(ref_channels="average")
     # high-pass filter the data
@@ -158,3 +163,20 @@ def collect_preprocess_data(dir_path: str) -> pd.DataFrame:
         session["participant_id"] = name
     print("Concatenating sessions")
     return pd.concat(sessions)
+
+
+def map_polarity_congruency(data: pd.DataFrame) -> pd.DataFrame:
+    data = data.copy()
+    condition_mapping = {
+        "wNeg": "Negative/Congruent",
+        "wNeu/iPos": "Positive/Neutral",
+        "wNeu/iNeg": "Negative/Neutral",
+        "Neu/iNeg": "Negative/Neutral",
+        "wPos": "Positive/Congruent",
+    }
+    data["condition"] = data.condition.map(condition_mapping)
+    data[["polarity", "congruency"]] = data.condition.str.split("/").tolist()
+    data["trial_name"] = (
+        data["participant_id"] + "/" + data["trial_id"].astype(str)
+    )
+    return data

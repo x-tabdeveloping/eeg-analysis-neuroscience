@@ -26,10 +26,11 @@ def main():
                 Path(OUT_DIR).joinpath(f"{name}.feather")
             )
             sessions.append(session)
-        except Exception:
+        except Exception as e:
             print(f"-----------------------------------------")
             print(f"!!!!!!!!!!!!!{name} FAILED!!!!!!!!!!!!!!!")
             print(f"-----------------------------------------")
+            print(e)
     print("Concatenating sessions")
     data = pd.concat(sessions)
 
